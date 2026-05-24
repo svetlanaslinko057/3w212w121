@@ -27399,3 +27399,9 @@ _legal_router = _legal_contract.init_router(
     email_is_configured=_eva_email_configured,
 )
 fastapi_app.include_router(_legal_router)
+
+# Background reminder loop for awaiting_signature contracts (24h/48h/96h).
+@fastapi_app.on_event("startup")
+async def _legal_contract_reminder_startup():
+    import asyncio as _asyncio
+    _asyncio.create_task(_legal_contract.contract_reminder_loop(db))

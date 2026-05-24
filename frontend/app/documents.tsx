@@ -117,11 +117,17 @@ export default function DocumentsScreen() {
 
   const openHtml = async (contractId: string) => {
     const url = `${BACKEND}/api/contracts/${contractId}/html`;
-    try {
-      await Linking.openURL(url);
-    } catch {
-      // silent
-    }
+    try { await Linking.openURL(url); } catch { /* silent */ }
+  };
+
+  const downloadPdf = async (contractId: string) => {
+    const url = `${BACKEND}/api/contracts/${contractId}/pdf`;
+    try { await Linking.openURL(url); } catch { /* silent */ }
+  };
+
+  const exportAllZip = async () => {
+    const url = `${BACKEND}/api/contracts/exports/zip`;
+    try { await Linking.openURL(url); } catch { /* silent */ }
   };
 
   const signed = items.filter((i) => i.state === 'signed');
@@ -146,7 +152,19 @@ export default function DocumentsScreen() {
         </TouchableOpacity>
         <Text style={s.h1}>Documents</Text>
       </View>
-      <Text style={s.lede}>Signed agreements, invoices and payment confirmations.</Text>
+      <View style={s.topBarRow}>
+        <Text style={[s.lede, { flex: 1, marginBottom: 0 }]}>Signed agreements, invoices and payment confirmations.</Text>
+        {signed.length > 0 && (
+          <TouchableOpacity
+            style={s.exportBtn}
+            onPress={exportAllZip}
+            testID="documents-export-zip"
+          >
+            <Ionicons name="download-outline" size={14} color={T.text} />
+            <Text style={s.exportBtnText}>Export all</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
       {err ? <Text style={s.errorText}>{err}</Text> : null}
 
@@ -167,6 +185,7 @@ export default function DocumentsScreen() {
                 if (next) loadEvidence(c.contract_id);
               }}
               onOpenHtml={() => openHtml(c.contract_id)}
+              onDownloadPdf={() => downloadPdf(c.contract_id)}
             />
           ))
         )}
@@ -284,12 +303,14 @@ function ContractCard({
   evidence,
   onToggle,
   onOpenHtml,
+  onDownloadPdf,
 }: {
   c: ContractItem;
   expanded: boolean;
   evidence: any;
   onToggle: () => void;
   onOpenHtml: () => void;
+  onDownloadPdf: () => void;
 }) {
   const pdfAvailable = c.pdf_status === 'generated';
   return (
@@ -314,7 +335,7 @@ function ContractCard({
       <View style={s.cardActions}>
         <TouchableOpacity
           style={s.cardBtn}
-          onPress={onOpenHtml}
+          onPress={pdfAvailable ? onDownloadPdf : onOpenHtml}
           testID={`documents-view-${c.contract_id}`}
         >
           <Ionicons name={pdfAvailable ? 'document' : 'code-slash'} size={14} color={T.text} />
@@ -344,6 +365,21 @@ function ContractCard({
               <EvidenceKV k="OTP channel" v={evidence.signature?.otp_channel || '—'} />
               <EvidenceKV k="Template" v={`${evidence.template_version} · ${evidence.terms_version}`} />
               <EvidenceKV k="Hash (sha256)" v={evidence.sha256_hash || '—'} mono />
+
+              {/* Counter-signature (executor side) — visible only on fully executed agreements */}
+              {evidence.executor_signature ? (
+                <>
+                  <View style={s.countersignDivider}>
+                    <Ionicons name="ribbon" size={12} color={T.success} />
+                    <Text style={s.countersignTitle}>Counter-signed by Provider</Text>
+                  </View>
+                  <EvidenceKV k="Party" v={evidence.executor_signature.party || '—'} />
+                  <EvidenceKV k="Role" v={evidence.executor_signature.role || '—'} />
+                  <EvidenceKV k="Signed at" v={(evidence.executor_signature.signed_at || '').slice(0, 19).replace('T', ' ')} />
+                  <EvidenceKV k="Method" v={evidence.executor_signature.signature_method || '—'} />
+                  <EvidenceKV k="Signature hash" v={evidence.executor_signature.signature_hash || '—'} mono />
+                </>
+              ) : null}
             </>
           )}
         </View>
@@ -376,6 +412,23 @@ const s = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg },
 
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  topBarRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: T.lg,
+  },
+  exportBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 10, paddingVertical: 7, borderRadius: T.radiusSm,
+    backgroundColor: T.surface2, borderWidth: 1, borderColor: T.border,
+  },
+  exportBtnText: { color: T.text, fontSize: 12, fontWeight: '700' },
+  countersignDivider: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: T.border,
+  },
+  countersignTitle: {
+    color: T.success, fontSize: 11, fontWeight: '800',
+    textTransform: 'uppercase', letterSpacing: 0.6,
+  },
   backBtn: { padding: 6, marginLeft: -6 },
   h1: { color: T.text, fontSize: 24, fontWeight: '800' },
   lede: { color: T.textSecondary, fontSize: T.body, marginBottom: T.lg, lineHeight: 20 },

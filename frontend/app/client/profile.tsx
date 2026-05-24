@@ -140,8 +140,7 @@ export default function ClientProfile() {
         <MenuRow
           icon="document-text-outline"
           label={t('profile.row.documents')}
-          value={t('common.coming_soon')}
-          onPress={() => Alert.alert(t('profile.row.documents'), t('common.coming_soon'))}
+          onPress={() => router.push('/documents' as any)}
           testID="profile-row-documents"
         />
 

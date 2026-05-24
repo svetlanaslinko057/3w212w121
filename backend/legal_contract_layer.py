@@ -795,15 +795,45 @@ def init_router(
         ip = _client_ip(request)
         ua = _client_ua(request)
 
-        # ---- PDF generation (optional, never blocks) ----
+        # ---- PDF generation (best-effort, never blocks signing) ----
         pdf_status = "skipped"
         pdf_b64 = None
         try:
-            pdf_b64 = await _try_render_pdf(final_html)
+            pdf_b64 = await _try_render_pdf(
+                final_html,
+                contract={
+                    "project_title": c.get("project_title"),
+                    "sha256_hash": sha,
+                    "contract_id": contract_id,
+                },
+            )
             pdf_status = "generated" if pdf_b64 else "skipped"
         except Exception as e:  # noqa: BLE001
             logger.warning(f"PDF generation failed, HTML fallback kept: {e}")
             pdf_status = "failed"
+
+        # ---- Executor counter-signature (Provider side) ----
+        # Per legal pattern: Client signs explicitly via OTP click-wrap; the
+        # platform (Provider/Executor) auto-counter-signs at the same moment
+        # using a deterministic platform identity. Both signatures are
+        # captured in the immutable evidence package — the agreement
+        # becomes bilaterally executed.
+        executor_signature = {
+            "party": "EVA-X / ATLAS DevOS",
+            "role": "Provider",
+            "tax_id": os.getenv("EXECUTOR_TAX_ID", "[Platform Tax ID — pending]"),
+            "registered_address": os.getenv(
+                "EXECUTOR_ADDRESS",
+                "EVA-X Platform, Operational HQ — pending legal review",
+            ),
+            "country": os.getenv("EXECUTOR_COUNTRY", "International"),
+            "signed_at": signed_at,
+            "signature_method": "platform_auto_countersign",
+            "signature_authority": os.getenv("EXECUTOR_SIGNATORY", "EVA-X Platform Operator"),
+            "signature_hash": _sha256_hex(
+                f"executor|{contract_id}|{c['user_id']}|{sha}|{signed_at}"
+            ),
+        }
 
         # ---- Persist contract as immutable ----
         await _db.contracts.update_one(
@@ -825,6 +855,8 @@ def init_router(
                         "email": user.email,
                         "user_id": user.user_id,
                     },
+                    "executor_signature": executor_signature,
+                    "fully_executed": True,
                 }
             },
         )
@@ -852,8 +884,25 @@ def init_router(
                 "template_version": c["template_version"],
                 "signature_method": "clickwrap_otp",
                 "acknowledgements": {k: bool(v) for k, v in body.acknowledgements.items()},
+                "executor_signature": executor_signature,
             }
         )
+
+        # ---- Notifications: notify admin + developer that the agreement
+        #      is now bilaterally executed. Best-effort; never blocks signing.
+        try:
+            await _emit_signed_notifications(
+                contract_id=contract_id,
+                project_id=c.get("project_id"),
+                project_title=c.get("project_title") or "Untitled project",
+                client_email=user.email or "",
+                client_name=legal_profile["full_name"],
+                price=c.get("price") or "",
+                signed_at=signed_at,
+                sha256_hash=sha,
+            )
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"signed notifications dispatch failed: {e}")
 
         signed = await _db.contracts.find_one({"contract_id": contract_id}, {"_id": 0})
         return {
@@ -865,6 +914,8 @@ def init_router(
                 "signed_at": signed_at,
                 "otp_verified": True,
                 "pdf_status": pdf_status,
+                "fully_executed": True,
+                "executor_signature": executor_signature,
             },
         }
 
@@ -889,6 +940,8 @@ def init_router(
             "template_version": c.get("template_version"),
             "sha256_hash": c.get("sha256_hash"),
             "pdf_status": c.get("pdf_status", "not_generated"),
+            "executor_signature": c.get("executor_signature"),
+            "fully_executed": bool(c.get("fully_executed", False)),
         }
 
     # ------- Gate -------
@@ -938,52 +991,561 @@ def init_router(
             "payment_unlocked": False,
         }
 
+    # ------- PDF download -------
+
+    @router.get("/contracts/{contract_id}/pdf")
+    async def download_contract_pdf(contract_id: str, user=Depends(_get_current_user)):
+        """Stream the signed contract as a real PDF file.
+
+        Always returns a PDF (never HTML). If the original PDF was not
+        generated at signing time (legacy or render failure), we render
+        it lazily NOW from the immutable html_snapshot — the canonical
+        evidence stays unchanged.
+        """
+        import base64
+        from fastapi.responses import Response
+
+        c = await _db.contracts.find_one(
+            {"contract_id": contract_id, "user_id": user.user_id}, {"_id": 0}
+        )
+        if not c:
+            raise HTTPException(status_code=404, detail="Contract not found")
+        if c["state"] != "signed":
+            raise HTTPException(
+                status_code=400,
+                detail="Contract is not signed yet — PDF available after signing.",
+            )
+
+        pdf_b64 = c.get("pdf_b64")
+        if not pdf_b64:
+            # Lazy render from immutable html_snapshot. Persist the bytes so
+            # subsequent downloads are O(1).
+            html = c.get("html_snapshot") or c.get("rendered_html") or ""
+            pdf_b64 = await _try_render_pdf(
+                html,
+                contract={
+                    "project_title": c.get("project_title"),
+                    "sha256_hash": c.get("sha256_hash"),
+                    "contract_id": contract_id,
+                },
+            )
+            if pdf_b64:
+                await _db.contracts.update_one(
+                    {"contract_id": contract_id},
+                    {"$set": {"pdf_b64": pdf_b64, "pdf_status": "generated"}},
+                )
+
+        if not pdf_b64:
+            raise HTTPException(
+                status_code=503,
+                detail="PDF render unavailable on this host; use /html endpoint.",
+            )
+
+        try:
+            pdf_bytes = base64.b64decode(pdf_b64)
+        except Exception:  # noqa: BLE001
+            raise HTTPException(status_code=500, detail="Corrupt PDF blob")
+
+        safe_title = "".join(
+            ch if ch.isalnum() or ch in ("-", "_") else "_"
+            for ch in (c.get("project_title") or "agreement")
+        )[:60]
+        filename = f"agreement_{safe_title}_{contract_id}.pdf"
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "X-Contract-Sha256": c.get("sha256_hash") or "",
+            },
+        )
+
+    # ------- ZIP bulk export (every signed contract + evidence JSON) -------
+
+    @router.get("/contracts/exports/zip")
+    async def export_contracts_zip(user=Depends(_get_current_user)):
+        """Download all signed contracts as a single ZIP archive.
+
+        Layout:
+          /<contract_id>/agreement.pdf      ← if rendered
+          /<contract_id>/agreement.html     ← always (immutable html_snapshot)
+          /<contract_id>/evidence.json      ← signature + project/legal snapshots
+          manifest.json                     ← top-level inventory + sha256 list
+        """
+        import base64
+        import io
+        import json as _json
+        import zipfile
+        from fastapi.responses import Response
+
+        cur = _db.contracts.find(
+            {"user_id": user.user_id, "state": "signed"}, {"_id": 0},
+        ).sort("signed_at", -1)
+        contracts = [doc async for doc in cur]
+        if not contracts:
+            raise HTTPException(status_code=404, detail="No signed contracts to export.")
+
+        buf = io.BytesIO()
+        manifest: List[Dict[str, Any]] = []
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for c in contracts:
+                cid = c["contract_id"]
+                title = c.get("project_title") or "agreement"
+                html = c.get("html_snapshot") or c.get("rendered_html") or ""
+                if html:
+                    zf.writestr(f"{cid}/agreement.html", html)
+                pdf_b64 = c.get("pdf_b64")
+                if pdf_b64:
+                    try:
+                        zf.writestr(f"{cid}/agreement.pdf",
+                                    base64.b64decode(pdf_b64))
+                    except Exception:  # noqa: BLE001
+                        pass
+                sig = await _db.contract_signatures.find_one(
+                    {"contract_id": cid}, {"_id": 0},
+                    sort=[("signed_at", -1)],
+                )
+                evidence = {
+                    "contract_id": cid,
+                    "project_title": title,
+                    "signed_at": c.get("signed_at"),
+                    "sha256_hash": c.get("sha256_hash"),
+                    "template_version": c.get("template_version"),
+                    "terms_version": c.get("terms_version"),
+                    "project_snapshot": c.get("project_snapshot"),
+                    "legal_profile_snapshot": c.get("legal_profile_snapshot"),
+                    "signer": c.get("signer"),
+                    "executor_signature": c.get("executor_signature"),
+                    "fully_executed": c.get("fully_executed", False),
+                    "signature_audit": sig,
+                }
+                zf.writestr(
+                    f"{cid}/evidence.json",
+                    _json.dumps(evidence, indent=2, ensure_ascii=False, default=str),
+                )
+                manifest.append({
+                    "contract_id": cid,
+                    "project_title": title,
+                    "signed_at": c.get("signed_at"),
+                    "sha256_hash": c.get("sha256_hash"),
+                    "has_pdf": bool(pdf_b64),
+                })
+            zf.writestr(
+                "manifest.json",
+                _json.dumps(
+                    {
+                        "user_id": user.user_id,
+                        "exported_at": _now_iso(),
+                        "count": len(manifest),
+                        "items": manifest,
+                    },
+                    indent=2, ensure_ascii=False,
+                ),
+            )
+        filename = f"my_agreements_{user.user_id}_{int(_now().timestamp())}.zip"
+        return Response(
+            content=buf.getvalue(),
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+            },
+        )
+
+    # ------- Reminder sweep (operational endpoint, used by event_engine) -------
+
+    @router.post("/contracts/_reminders/sweep")
+    async def reminders_sweep(user=Depends(_get_current_user)):
+        """Send reminder emails for awaiting_signature contracts older
+        than 24h. Idempotent: each cadence (24h / 48h / 96h) sends once.
+
+        Admin-only. Manually triggers a sweep; the background loop runs
+        every 6 hours automatically.
+        """
+        roles = set(getattr(user, "roles", []) or [])
+        if "admin" not in roles and getattr(user, "role", "") != "admin":
+            raise HTTPException(status_code=403, detail="Admin only")
+        result = await _run_reminder_sweep()
+        return result
+
     return router
 
 
 # ---------------------------------------------------------------------------
-# PDF generation (best-effort, never blocks signing)
+# Notifications + reminder daemon (Phase 2 — operational reach)
 # ---------------------------------------------------------------------------
 
 
-async def _try_render_pdf(html: str) -> Optional[str]:
+async def _emit_signed_notifications(
+    *,
+    contract_id: str,
+    project_id: Optional[str],
+    project_title: str,
+    client_email: str,
+    client_name: str,
+    price: str,
+    signed_at: str,
+    sha256_hash: str,
+) -> None:
+    """Fan-out: in-app notifications for admins + assigned developers +
+    a confirmation row for the client themselves.
+
+    All writes go through the existing `notifications` collection
+    (consumed by `/api/notifications/my` + push_sender).
     """
-    Best-effort PDF rendering. Returns base64-encoded PDF bytes or None.
+    base = {
+        "kind": "contract.signed",
+        "title": "Agreement signed",
+        "body": (
+            f"{client_name} signed the agreement for "
+            f"{project_title}"
+            + (f" ({price})" if price else "")
+            + "."
+        ),
+        "created_at": _now_iso(),
+        "read": False,
+        "data": {
+            "contract_id": contract_id,
+            "project_id": project_id,
+            "sha256_hash": (sha256_hash or "")[:16],
+            "signed_at": signed_at,
+        },
+    }
 
-    Strategy (Phase 1, hard rule: never block signing):
-      1. Try weasyprint if present in the environment.
-      2. If not installed or rendering throws → return None, caller records
-         pdf_status='failed' and keeps html_snapshot + sha256 as source of
-         truth.
+    rows: List[Dict[str, Any]] = []
 
-    We intentionally do NOT install weasyprint in requirements.txt here —
-    on some base images it needs system deps (pango/cairo) which would
-    break deploy. The Phase 2 task will decide whether to pull it in, or
-    swap to a lighter HTML-to-PDF path.
+    # 1) Client gets a self-confirmation
+    client_user = await _db.users.find_one(
+        {"email": client_email}, {"_id": 0, "user_id": 1},
+    ) if client_email else None
+    if client_user:
+        rows.append({
+            **base,
+            "notification_id": f"ntf_{uuid.uuid4().hex[:12]}",
+            "user_id": client_user["user_id"],
+            "title": "Your agreement is signed",
+            "body": f"{project_title} is fully executed. You're ready to fund it.",
+        })
+
+    # 2) Every admin
+    admins_cur = _db.users.find(
+        {"$or": [{"role": "admin"}, {"roles": "admin"}]},
+        {"_id": 0, "user_id": 1},
+    )
+    async for u in admins_cur:
+        rows.append({
+            **base,
+            "notification_id": f"ntf_{uuid.uuid4().hex[:12]}",
+            "user_id": u["user_id"],
+        })
+
+    # 3) Developer(s) assigned to this project (if any)
+    if project_id:
+        proj = await _db.projects.find_one(
+            {"project_id": project_id},
+            {"_id": 0, "developer_id": 1, "team": 1, "modules": 1},
+        )
+        dev_ids: set = set()
+        if proj:
+            if proj.get("developer_id"):
+                dev_ids.add(proj["developer_id"])
+            for member in (proj.get("team") or []):
+                if isinstance(member, dict) and member.get("user_id"):
+                    dev_ids.add(member["user_id"])
+            for mod in (proj.get("modules") or []):
+                if isinstance(mod, dict) and mod.get("developer_id"):
+                    dev_ids.add(mod["developer_id"])
+        for dev_id in dev_ids:
+            rows.append({
+                **base,
+                "notification_id": f"ntf_{uuid.uuid4().hex[:12]}",
+                "user_id": dev_id,
+                "title": "Project unlocked",
+                "body": f"{project_title} has been signed. Awaiting initial payment to start.",
+            })
+
+    if rows:
+        await _db.notifications.insert_many(rows)
+        logger.info(
+            "contract.signed notifications fanned out: %d recipients (contract=%s)",
+            len(rows), contract_id,
+        )
+
+
+# Reminder cadence (hours since prepared) → marker key in contract doc.
+_REMINDER_CADENCE = [
+    (24, "reminder_24h_sent_at"),
+    (48, "reminder_48h_sent_at"),
+    (96, "reminder_96h_sent_at"),
+]
+
+
+async def _run_reminder_sweep() -> Dict[str, Any]:
+    """Walk every awaiting_signature contract, emit a reminder notification
+    at the 24h / 48h / 96h mark (each cadence at-most-once).
+    """
+    now = _now()
+    counts = {"awaiting": 0, "reminded_24h": 0, "reminded_48h": 0,
+              "reminded_96h": 0, "errors": 0}
+
+    cur = _db.contracts.find(
+        {"state": "awaiting_signature"}, {"_id": 0},
+    )
+    async for c in cur:
+        counts["awaiting"] += 1
+        try:
+            created_iso = c.get("created_at") or _now_iso()
+            try:
+                created = datetime.fromisoformat(created_iso.replace("Z", "+00:00"))
+            except Exception:
+                continue
+            age_h = (now - created).total_seconds() / 3600.0
+            for threshold_h, marker in _REMINDER_CADENCE:
+                if age_h >= threshold_h and not c.get(marker):
+                    await _emit_reminder_notification(c, threshold_h)
+                    await _db.contracts.update_one(
+                        {"contract_id": c["contract_id"]},
+                        {"$set": {marker: _now_iso()}},
+                    )
+                    counts[f"reminded_{threshold_h}h"] += 1
+        except Exception as e:  # noqa: BLE001
+            counts["errors"] += 1
+            logger.warning(f"reminder sweep error for {c.get('contract_id')}: {e}")
+
+    logger.info("REMINDER SWEEP: %s", counts)
+    return counts
+
+
+async def _emit_reminder_notification(
+    contract: Dict[str, Any], threshold_h: int,
+) -> None:
+    title_map = {
+        24: "Your agreement is waiting for you",
+        48: "Reminder: agreement still unsigned",
+        96: "Last reminder: please review your agreement",
+    }
+    body_map = {
+        24: "You started a project, but haven't signed the agreement yet. "
+            "It takes about 60 seconds — tap to continue.",
+        48: "Just a friendly reminder — the agreement for your project "
+            "is still waiting for your signature.",
+        96: "If you no longer need this project, you can ignore this. "
+            "Otherwise, please sign so we can begin development.",
+    }
+    title = title_map.get(threshold_h, "Agreement reminder")
+    body = body_map.get(threshold_h, "Please review your agreement.")
+    row = {
+        "notification_id": f"ntf_{uuid.uuid4().hex[:12]}",
+        "user_id": contract["user_id"],
+        "kind": f"contract.reminder.{threshold_h}h",
+        "title": title,
+        "body": body,
+        "created_at": _now_iso(),
+        "read": False,
+        "data": {
+            "contract_id": contract["contract_id"],
+            "project_id": contract.get("project_id"),
+            "project_title": contract.get("project_title"),
+        },
+    }
+    await _db.notifications.insert_one(row)
+
+
+async def contract_reminder_loop(db) -> None:
+    """Background loop — called once from server.py at boot.
+    Sweeps every `CONTRACT_REMINDER_INTERVAL_SEC` seconds (default 6h).
+    """
+    import asyncio
+    global _db
+    if _db is None:
+        _db = db
+    interval = int(os.getenv("CONTRACT_REMINDER_INTERVAL_SEC", "21600") or 21600)
+    if interval <= 0:
+        logger.info("CONTRACT REMINDER LOOP: disabled (interval<=0)")
+        return
+    logger.info("CONTRACT REMINDER LOOP: started (interval %ds)", interval)
+    while True:
+        try:
+            await asyncio.sleep(interval)
+            await _run_reminder_sweep()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("CONTRACT REMINDER LOOP: cycle failed (will retry)")
+
+
+async def _try_render_pdf(html: str, *, contract: Optional[Dict[str, Any]] = None) -> Optional[str]:
+    """
+    Production PDF rendering via ReportLab (pure Python, no system deps).
+
+    Strategy:
+      1. Use ReportLab Platypus — converts our contract HTML structure
+         into a properly paginated, multi-page PDF document.
+      2. Header carries the project title + EVA-X branding.
+      3. Footer carries page number + sha256 hint (truncated) so the printed
+         PDF is self-evidencing.
+      4. Bilingual-safe: all string handling is UTF-8 throughout.
+
+    Returns base64-encoded PDF bytes. On unexpected failure logs and
+    returns None — caller records `pdf_status='failed'` and keeps
+    html_snapshot + sha256 as source of truth.
+
+    The function never blocks signing (caller wraps in try/except).
     """
     try:
         import asyncio
         import base64
+        import io
+        import re
+
         try:
-            from weasyprint import HTML  # type: ignore
-        except Exception:  # noqa: BLE001
+            from reportlab.lib.pagesizes import A4
+            from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+            from reportlab.lib.units import mm
+            from reportlab.platypus import (
+                BaseDocTemplate, Frame, PageTemplate, Paragraph,
+                Spacer, ListFlowable, ListItem, KeepTogether,
+            )
+        except Exception:  # noqa: BLE001 — defensive even though we just installed it
+            logger.warning("reportlab not importable; skipping PDF render")
             return None
 
-        def _render() -> bytes:
-            wrapped = (
-                "<html><head><meta charset='utf-8'>"
-                "<style>body{font-family: -apple-system, system-ui, sans-serif;"
-                "line-height:1.55; color:#0F172A; padding:32px 40px; max-width:780px;}"
-                "h1{font-size:22px;} h2{font-size:15px;margin-top:22px;}"
-                "p,li{font-size:12px;} .placeholder{color:#94A3B8;font-style:italic;}"
-                "</style></head><body>" + html + "</body></html>"
-            )
-            return HTML(string=wrapped).write_pdf()
+        # ---- Parse our contract HTML into a list of (kind, text) blocks ----
+        # We accept the same subset our Expo preview renders: h1, h2, p, li, ul/ol.
+        cleaned = re.sub(r"<!--.*?-->", "", html or "", flags=re.S)
+        cleaned = re.sub(r"<section[^>]*>|</section>", "", cleaned)
+        # ReportLab Paragraph supports <b>, <i>, <font>; strip everything else.
+        def _inline(s: str) -> str:
+            s = re.sub(r"</?(?:span|em|strong)[^>]*>", "", s)
+            # keep <b>, <i> as-is
+            s = re.sub(r"<br\s*/?>", "<br/>", s)
+            return s.strip()
 
-        pdf_bytes = await asyncio.to_thread(_render)
+        block_re = re.compile(
+            r"<(h1|h2|p|ul|ol)([^>]*)>(.*?)</\1>", re.S | re.I,
+        )
+        li_re = re.compile(r"<li[^>]*>(.*?)</li>", re.S | re.I)
+
+        blocks: List[Dict[str, Any]] = []
+        for m in block_re.finditer(cleaned):
+            tag = m.group(1).lower()
+            attrs = (m.group(2) or "")
+            inner = m.group(3) or ""
+            if tag in ("ul", "ol"):
+                items = [_inline(re.sub(r"<[^>]+>", "", li_re_inner)) if False else _inline(li_re_inner)
+                         for li_re_inner in li_re.findall(inner)]
+                items = [x for x in items if x]
+                if items:
+                    blocks.append({"kind": tag, "items": items})
+            else:
+                text = _inline(inner)
+                if not text:
+                    continue
+                kind = tag
+                if tag == "p" and "class=\"meta\"" in attrs:
+                    kind = "meta"
+                if tag == "p" and "class=\"placeholder\"" in attrs:
+                    kind = "placeholder"
+                blocks.append({"kind": kind, "text": text})
+
+        # ---- Build PDF ----
+        project_title = (contract or {}).get("project_title") or "Service Agreement"
+        sha_hint = ((contract or {}).get("sha256_hash") or "")[:12]
+        contract_id_hint = ((contract or {}).get("contract_id") or "")[:18]
+
+        buf = io.BytesIO()
+
+        def _on_page(canvas, doc):
+            canvas.saveState()
+            # Header
+            canvas.setFont("Helvetica-Bold", 9)
+            canvas.setFillGray(0.35)
+            canvas.drawString(20 * mm, A4[1] - 12 * mm, "EVA-X · ATLAS DevOS")
+            canvas.setFont("Helvetica", 8)
+            canvas.drawRightString(A4[0] - 20 * mm, A4[1] - 12 * mm,
+                                   project_title[:60])
+            canvas.setStrokeGray(0.85)
+            canvas.line(20 * mm, A4[1] - 14 * mm,
+                        A4[0] - 20 * mm, A4[1] - 14 * mm)
+            # Footer
+            canvas.setFont("Helvetica", 7)
+            canvas.setFillGray(0.45)
+            footer = (f"{contract_id_hint}  ·  sha256:{sha_hint}…  "
+                      f"·  Page {doc.page}")
+            canvas.drawCentredString(A4[0] / 2, 10 * mm, footer)
+            canvas.restoreState()
+
+        def _build() -> bytes:
+            ss = getSampleStyleSheet()
+            h1 = ParagraphStyle(
+                "H1", parent=ss["Heading1"], fontName="Helvetica-Bold",
+                fontSize=18, leading=22, spaceAfter=6, textColor="#0F172A",
+            )
+            h2 = ParagraphStyle(
+                "H2", parent=ss["Heading2"], fontName="Helvetica-Bold",
+                fontSize=12, leading=16, spaceBefore=10, spaceAfter=4,
+                textColor="#0F172A",
+            )
+            body = ParagraphStyle(
+                "Body", parent=ss["BodyText"], fontName="Helvetica",
+                fontSize=10, leading=14, spaceAfter=4, textColor="#0F172A",
+            )
+            meta = ParagraphStyle(
+                "Meta", parent=body, fontName="Helvetica-Oblique",
+                fontSize=8, textColor="#64748B",
+            )
+            placeholder = ParagraphStyle(
+                "Placeholder", parent=body, fontName="Helvetica-Oblique",
+                textColor="#94A3B8",
+            )
+
+            doc = BaseDocTemplate(
+                buf, pagesize=A4,
+                leftMargin=20 * mm, rightMargin=20 * mm,
+                topMargin=22 * mm, bottomMargin=18 * mm,
+                title=project_title, author="EVA-X / ATLAS DevOS",
+            )
+            frame = Frame(
+                doc.leftMargin, doc.bottomMargin,
+                doc.width, doc.height, showBoundary=0,
+            )
+            doc.addPageTemplates([PageTemplate(id="main", frames=[frame], onPage=_on_page)])
+
+            story: List[Any] = []
+            for blk in blocks:
+                k = blk["kind"]
+                if k == "h1":
+                    story.append(Paragraph(blk["text"], h1))
+                elif k == "h2":
+                    story.append(Paragraph(blk["text"], h2))
+                elif k == "meta":
+                    story.append(Paragraph(blk["text"], meta))
+                elif k == "placeholder":
+                    story.append(Paragraph(blk["text"], placeholder))
+                elif k == "p":
+                    story.append(Paragraph(blk["text"], body))
+                elif k in ("ul", "ol"):
+                    li = [ListItem(Paragraph(t, body), leftIndent=8)
+                          for t in blk["items"]]
+                    story.append(ListFlowable(
+                        li,
+                        bulletType="bullet" if k == "ul" else "1",
+                        leftIndent=14, spaceBefore=2, spaceAfter=4,
+                    ))
+
+            # If parsing produced nothing, emit a single placeholder so the PDF
+            # isn't blank — html_snapshot remains canonical anyway.
+            if not story:
+                story.append(Paragraph(
+                    "(Contract body — see html_snapshot for full text)",
+                    placeholder,
+                ))
+            doc.build(story)
+            return buf.getvalue()
+
+        pdf_bytes = await asyncio.to_thread(_build)
         return base64.b64encode(pdf_bytes).decode("ascii")
-    except Exception as e:  # noqa: BLE001
-        logger.warning(f"weasyprint render failed: {e}")
+    except Exception as e:  # noqa: BLE001 — last-resort safety
+        logger.warning(f"reportlab render failed: {e}")
         return None
 
 
