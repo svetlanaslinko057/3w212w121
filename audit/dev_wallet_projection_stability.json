@@ -1,0 +1,157 @@
+{
+  "base_url": "http://localhost:8001",
+  "evaluation": {
+    "all_pass": true,
+    "errors": [],
+    "invariants": {
+      "classification_histogram_stable": true,
+      "diverged_eq_zero": true,
+      "legacy_dev_wallets_immutable": true,
+      "matches_monotone_non_decreasing": true,
+      "mock_orphan_stable": true,
+      "projection_checksum_stable": true,
+      "rebuild_idempotent_after_first": true
+    },
+    "summary": {
+      "checksum": "b311bd5b5902a72a99cc9406a57543fae550d009fae6ef8d93170bd7b1060ac0",
+      "histogram": {
+        "ledger_only": 166,
+        "legacy_only": 5,
+        "matches": 5,
+        "mock_orphan": 7,
+        "pending_post_b4_3_d1": 5,
+        "pending_pre_b4_3_d": 5
+      },
+      "rows_total": 193
+    },
+    "warnings": []
+  },
+  "legacy_after": {
+    "checksum": "e0db1cd18baf60968a12fc97487699f9332ea19a9fd35d9f3c2f8c8bcb2731e3",
+    "row_count": 27
+  },
+  "legacy_before": {
+    "checksum": "e0db1cd18baf60968a12fc97487699f9332ea19a9fd35d9f3c2f8c8bcb2731e3",
+    "row_count": 27
+  },
+  "phase": "2C-B2",
+  "ran_at": "2026-05-23T17:52:07.366337+00:00",
+  "runs": [
+    {
+      "classifications": {
+        "ledger_only": 166,
+        "legacy_only": 5,
+        "matches": 5,
+        "mock_orphan": 7,
+        "pending_post_b4_3_d1": 5,
+        "pending_pre_b4_3_d": 5
+      },
+      "finished_at": "2026-05-23T17:51:58.487664+00:00",
+      "projection_checksum": "b311bd5b5902a72a99cc9406a57543fae550d009fae6ef8d93170bd7b1060ac0",
+      "rebuild_counts": {
+        "computed": 193,
+        "discovered": 193,
+        "errors": 0,
+        "unchanged": 82,
+        "written": 111
+      },
+      "rebuild_state": "completed",
+      "rows_total": 193,
+      "run_index": 1,
+      "started_at": "2026-05-23T17:51:56.255375+00:00"
+    },
+    {
+      "classifications": {
+        "ledger_only": 166,
+        "legacy_only": 5,
+        "matches": 5,
+        "mock_orphan": 7,
+        "pending_post_b4_3_d1": 5,
+        "pending_pre_b4_3_d": 5
+      },
+      "finished_at": "2026-05-23T17:52:00.676907+00:00",
+      "projection_checksum": "b311bd5b5902a72a99cc9406a57543fae550d009fae6ef8d93170bd7b1060ac0",
+      "rebuild_counts": {
+        "computed": 193,
+        "discovered": 193,
+        "errors": 0,
+        "unchanged": 193,
+        "written": 0
+      },
+      "rebuild_state": "completed",
+      "rows_total": 193,
+      "run_index": 2,
+      "started_at": "2026-05-23T17:51:58.488191+00:00"
+    },
+    {
+      "classifications": {
+        "ledger_only": 166,
+        "legacy_only": 5,
+        "matches": 5,
+        "mock_orphan": 7,
+        "pending_post_b4_3_d1": 5,
+        "pending_pre_b4_3_d": 5
+      },
+      "finished_at": "2026-05-23T17:52:02.926278+00:00",
+      "projection_checksum": "b311bd5b5902a72a99cc9406a57543fae550d009fae6ef8d93170bd7b1060ac0",
+      "rebuild_counts": {
+        "computed": 193,
+        "discovered": 193,
+        "errors": 0,
+        "unchanged": 193,
+        "written": 0
+      },
+      "rebuild_state": "completed",
+      "rows_total": 193,
+      "run_index": 3,
+      "started_at": "2026-05-23T17:52:00.677365+00:00"
+    },
+    {
+      "classifications": {
+        "ledger_only": 166,
+        "legacy_only": 5,
+        "matches": 5,
+        "mock_orphan": 7,
+        "pending_post_b4_3_d1": 5,
+        "pending_pre_b4_3_d": 5
+      },
+      "finished_at": "2026-05-23T17:52:05.136139+00:00",
+      "projection_checksum": "b311bd5b5902a72a99cc9406a57543fae550d009fae6ef8d93170bd7b1060ac0",
+      "rebuild_counts": {
+        "computed": 193,
+        "discovered": 193,
+        "errors": 0,
+        "unchanged": 193,
+        "written": 0
+      },
+      "rebuild_state": "completed",
+      "rows_total": 193,
+      "run_index": 4,
+      "started_at": "2026-05-23T17:52:02.926743+00:00"
+    },
+    {
+      "classifications": {
+        "ledger_only": 166,
+        "legacy_only": 5,
+        "matches": 5,
+        "mock_orphan": 7,
+        "pending_post_b4_3_d1": 5,
+        "pending_pre_b4_3_d": 5
+      },
+      "finished_at": "2026-05-23T17:52:07.362267+00:00",
+      "projection_checksum": "b311bd5b5902a72a99cc9406a57543fae550d009fae6ef8d93170bd7b1060ac0",
+      "rebuild_counts": {
+        "computed": 193,
+        "discovered": 193,
+        "errors": 0,
+        "unchanged": 193,
+        "written": 0
+      },
+      "rebuild_state": "completed",
+      "rows_total": 193,
+      "run_index": 5,
+      "started_at": "2026-05-23T17:52:05.136593+00:00"
+    }
+  ],
+  "runs_requested": 5
+}

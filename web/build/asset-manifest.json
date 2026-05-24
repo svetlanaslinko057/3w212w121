@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/api/web-ui/static/css/main.82f208cf.css",
+    "main.js": "/api/web-ui/static/js/main.a7253533.js",
+    "index.html": "/api/web-ui/index.html",
+    "main.82f208cf.css.map": "/api/web-ui/static/css/main.82f208cf.css.map",
+    "main.a7253533.js.map": "/api/web-ui/static/js/main.a7253533.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.82f208cf.css",
+    "static/js/main.a7253533.js"
+  ]
+}
