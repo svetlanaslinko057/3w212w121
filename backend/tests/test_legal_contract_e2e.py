@@ -113,15 +113,21 @@ async def main() -> int:
         if existing_awaiting and existing_awaiting.get("state") != "signed":
             cid = existing_awaiting["contract_id"]
 
-            # request-otp REQUIRES legal_profile in body (PUT /legal/profile
-            # is the standalone save; sign endpoints accept it inline too).
+            # request-otp REQUIRES the new P3 legal_profile shape:
+            # legal_type + first_name + last_name + phone + billing_address +
+            # country + city + postal_code.
             r = await c.post(f"{BASE}/api/contracts/{cid}/sign/request-otp", json={
                 "legal_profile": {
-                    "full_name": "E2E Test Client",
-                    "tax_id": "TEST-TAX-0001",
-                    "registered_address": "1 Test Lane, Suite 42, 11111 Testopolis",
-                    "country": "TS",
+                    "legal_type": "individual",
+                    "first_name": "Acme",
+                    "last_name": "Tester",
+                    "middle_name": None,
                     "phone": "+1 555 0100",
+                    "billing_address": "1 Test Lane, Suite 42",
+                    "country": "TS",
+                    "city": "Testopolis",
+                    "postal_code": "11111",
+                    "tax_id": None,  # optional now (data minimization)
                 },
             })
             if r.status_code != 200:
@@ -139,11 +145,16 @@ async def main() -> int:
                 "otp_code": dev_code,
                 "terms_version": "v1.0-placeholder",
                 "legal_profile": {
-                    "full_name": "E2E Test Client",
-                    "tax_id": "TEST-TAX-0001",
-                    "registered_address": "1 Test Lane, Suite 42, 11111 Testopolis",
-                    "country": "TS",
+                    "legal_type": "individual",
+                    "first_name": "Acme",
+                    "last_name": "Tester",
+                    "middle_name": None,
                     "phone": "+1 555 0100",
+                    "billing_address": "1 Test Lane, Suite 42",
+                    "country": "TS",
+                    "city": "Testopolis",
+                    "postal_code": "11111",
+                    "tax_id": None,
                 },
                 "acknowledgements": {
                     "legal_details_correct": True,
@@ -200,6 +211,46 @@ async def main() -> int:
             ns_list = ns if isinstance(ns, list) else (ns.get("items") or [])
             signed_notifs = [n for n in ns_list if (n.get("kind") or "").startswith("contract.signed")]
             print(f"[notifications] total={len(ns_list)} contract.signed={len(signed_notifs)}")
+
+        # ---- 9) CONTRACT-P6 Readiness gate (when contract is signed, ready=False
+        #         because checks include not_already_signed=False) ----
+        if existing_signed:
+            r = await c.get(f"{BASE}/api/contracts/{existing_signed['contract_id']}/readiness")
+            assert r.status_code == 200, f"readiness endpoint failed: {r.status_code}"
+            rd = r.json()
+            print(f"[readiness] signed contract → ready={rd['ready']} missing={rd['missing']} sig_level={rd.get('signature_level_required')}")
+            assert rd["ready"] is False, "signed contract should NOT be ready (already signed)"
+            assert "not_already_signed" in rd["missing"]
+
+        # ---- 10) CONTRACT-P7 Data export ----
+        # First, exercise PUT /legal/profile to ensure new P3 shape is persisted
+        # (otherwise an existing-signed-contract run skips _upsert_legal_profile).
+        r = await c.put(f"{BASE}/api/legal/profile", json={
+            "legal_type": "individual",
+            "first_name": "Acme",
+            "last_name": "Tester",
+            "phone": "+1 555 0100",
+            "billing_address": "1 Test Lane, Suite 42",
+            "country": "TS",
+            "city": "Testopolis",
+            "postal_code": "11111",
+        })
+        assert r.status_code == 200, f"PUT profile failed: {r.status_code} {r.text[:200]}"
+
+        r = await c.get(f"{BASE}/api/legal/profile/export")
+        assert r.status_code == 200, f"export failed: {r.status_code}"
+        ex = r.json()
+        prof = ex["legal_profile"]
+        print(f"[export] profile shape: legal_type={prof.get('legal_type')} first_name={prof.get('first_name')} billing_address={'set' if prof.get('billing_address') else 'no'} contracts={len(ex['contracts'])} signatures={len(ex['signatures'])}")
+        assert prof.get("legal_type") in ("individual", "company"), f"legal_type missing: {prof}"
+        assert prof.get("first_name"), "first_name missing"
+        assert prof.get("billing_address"), "billing_address missing"
+        assert "tax_id_enc" not in prof, "encrypted blob leaked to UI"
+
+        # ---- 11) CONTRACT-P7 Erasure request ----
+        r = await c.post(f"{BASE}/api/legal/profile/delete-request")
+        assert r.status_code == 200, f"delete-request failed: {r.status_code}"
+        print(f"[delete-request] state={r.json().get('state')}")
 
         print("\n✅ END-TO-END CONTRACT SIGNING FLOW PASSED")
         return 0

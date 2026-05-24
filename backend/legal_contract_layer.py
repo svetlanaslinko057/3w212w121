@@ -122,108 +122,214 @@ def _client_ua(request: Request) -> str:
 
 DEFAULT_TEMPLATE_HTML = """
 <section class="contract">
-<h1>Software Development Agreement</h1>
+<h1>Software Development &amp; Delivery Agreement</h1>
 <p class="meta">Template version: {template_version} — {template_status}</p>
+<p class="meta">Effective date: at the moment of electronic acceptance by the Client.</p>
 
 <h2>1. Parties</h2>
 <p>
-  This agreement (the "<b>Agreement</b>") is made between
-  <b>{client_name}</b> (the "<b>Client</b>"),
-  identified by tax ID <b>{client_tax_id}</b>, registered at
-  <b>{client_address}</b>, and the platform operator (the "<b>Provider</b>"),
-  operating the EVA-X / ATLAS DevOS product delivery system.
+  This Software Development &amp; Delivery Agreement (the
+  &ldquo;<b>Agreement</b>&rdquo;) is made between:
+</p>
+<ul>
+  <li>
+    <b>Client</b> — <b>{client_name}</b>{client_tax_block}, having its
+    billing address at <b>{client_address}</b>, contactable by phone
+    <b>{client_phone}</b> and by email <b>{client_email}</b>;
+  </li>
+  <li>
+    <b>Provider</b> — <b>{provider_party}</b>, operating the EVA-X /
+    ATLAS DevOS product delivery system, having registered address at
+    <b>{provider_address}</b>{provider_tax_block}.
+  </li>
+</ul>
+<p>
+  The Client and the Provider are each a &ldquo;Party&rdquo; and
+  together the &ldquo;Parties&rdquo;.
 </p>
 
-<h2>2. Project scope</h2>
+<h2>2. Project description</h2>
 <p>
   The Provider will deliver the project titled
-  <b>"{project_title}"</b> as described in the attached scope snapshot.
-  The scope consists of the following modules, which form a single
-  integrated deliverable:
+  <b>&ldquo;{project_title}&rdquo;</b>, an integrated software product
+  as described in the project brief and scope snapshot bound to this
+  Agreement as an immutable evidence item (Section 18).
+</p>
+
+<h2>3. Scope of work</h2>
+<p>
+  The scope consists of the following modules, which together form a
+  single, indivisible deliverable:
 </p>
 {modules_html}
-
-<h2>3. Timeline</h2>
 <p>
-  Estimated timeline: <b>{timeline}</b>. Timeline starts after the
-  initial payment is received and is subject to change requests handled
-  under Section 7.
+  Anything not explicitly named in this scope, in the bound estimate,
+  or in the bound milestones list is out of scope and is governed by
+  Section 8 (Change requests).
 </p>
 
-<h2>4. Price and payment schedule</h2>
+<h2>4. Deliverables</h2>
+<p>
+  For each module the Provider delivers (a) the working software
+  artefact, (b) the source code, configuration and build manifests,
+  (c) a short delivery note describing what was implemented and how to
+  verify it, and (d) a passing human-validation gate (Section 7).
+</p>
+
+<h2>5. Timeline and milestones</h2>
+<p>
+  Estimated overall timeline: <b>{timeline}</b>. The timeline starts
+  from the moment the initial payment named in Section 6 is received.
+  Material timeline impact from Client-side blockers (missing inputs,
+  delayed feedback, change requests) extends the timeline by the
+  equivalent amount, recorded transparently in the workspace.
+</p>
+
+<h2>6. Price and payment terms</h2>
 <p>Total project price: <b>{price}</b>.</p>
 {payment_plan_html}
-
-<h2>5. Start condition</h2>
 <p>
-  The Provider begins work only after (a) this Agreement is signed
-  electronically by the Client, and (b) the initial payment listed in
-  Section 4 has been received.
+  Payments are made via the payment method selected by the Client and
+  recorded as <b>{payment_method}</b>. Invoices are issued for each
+  payment trigger and are payable within seven (7) days of issue
+  unless an alternative cadence is stated in the payment schedule.
 </p>
 
-<h2>6. Delivery and review</h2>
+<h2>7. Human validation, QA and acceptance</h2>
 <p>
-  Each module is delivered to the Client's workspace with an acceptance
-  window. If no review is submitted within the acceptance window, the
-  module is considered accepted.
+  Each delivered module is examined by an independent human validator
+  using the Provider&rsquo;s Reality / HVL validation layer
+  (<b>{hvl_summary}</b>). The Client then has an acceptance window
+  during which they can request fixes or sign-off in the workspace.
+  If no response is recorded within the acceptance window, the module
+  is treated as accepted.
 </p>
 
-<h2>7. Change requests</h2>
+<h2>8. Change requests</h2>
 <p>
-  Changes that are outside of the scope snapshot are handled as
-  change requests. Each change request is priced and scheduled
-  separately and requires the Client's written approval before work
-  begins on it.
+  Any change to scope, deliverables, timeline or price occurs by
+  written change request inside the workspace. Each change request is
+  priced and scheduled separately and only enters work after the
+  Client&rsquo;s written approval.
 </p>
 
-<h2>8. Intellectual property</h2>
+<h2>9. Client obligations</h2>
 <p>
-  On full payment, all project-specific deliverables (code, design
-  assets, configuration) produced under this Agreement transfer to the
-  Client. Pre-existing components (platform code, internal libraries)
-  remain the property of the Provider and are licensed to the Client
-  for use inside the delivered product.
+  The Client agrees to (a) provide accurate brief and feedback in a
+  timely manner; (b) appoint a single primary decision-maker for the
+  duration of the project; (c) provide any third-party credentials,
+  brand assets, and external system access reasonably necessary to
+  deliver the modules in scope; and (d) make payments on the agreed
+  schedule.
 </p>
 
-<h2>9. Cancellation and refund</h2>
+<h2>10. Provider obligations</h2>
 <p>
-  Either party may terminate this Agreement in writing. Work completed
-  up to the termination date is invoiced at actual cost. Unused portions
-  of pre-paid milestones are refunded within 30 days.
+  The Provider agrees to (a) deliver the modules in scope using
+  qualified engineers and Provider&rsquo;s human validation layer; (b)
+  surface risk, blockers and timeline impact transparently in the
+  workspace; (c) keep the Client&rsquo;s materials confidential under
+  Section 14; and (d) preserve immutable evidence of every signing,
+  payment and acceptance event for at least the retention period in
+  Section 18.
 </p>
 
-<h2>10. Electronic acceptance</h2>
+<h2>11. Developer / operator subcontracting</h2>
+<p>
+  The Client acknowledges that work is performed by a curated pool of
+  developers and operators sourced and supervised by the Provider. The
+  Provider remains contractually responsible to the Client for the
+  delivery in full and for all sub-tier engagements. Names of the
+  assigned developers and operators are visible to the Client inside
+  the workspace.
+</p>
+
+<h2>12. Intellectual property</h2>
+<p>
+  Upon full payment of the price in Section 6, all project-specific
+  deliverables created under this Agreement (source code, design
+  assets, configuration, project documentation) transfer to the
+  Client. Pre-existing components of the Provider&rsquo;s platform
+  (the platform code itself, internal libraries, internal models,
+  validation pipelines) remain the property of the Provider and are
+  licensed to the Client on a perpetual, royalty-free, non-exclusive
+  basis solely to operate the delivered product.
+</p>
+
+<h2>13. Confidentiality</h2>
+<p>
+  Each Party shall keep the other Party&rsquo;s non-public
+  information confidential, use it only for the purpose of performing
+  this Agreement, and protect it with at least the same degree of care
+  it applies to its own confidential information. This obligation
+  survives termination for three (3) years.
+</p>
+
+<h2>14. Limitation of liability</h2>
+<p>
+  To the maximum extent permitted by applicable law, each
+  Party&rsquo;s aggregate liability arising out of or in connection
+  with this Agreement is limited to the total amount actually paid by
+  the Client under this Agreement during the twelve (12) months
+  preceding the event giving rise to the claim. Neither Party is
+  liable for indirect, incidental, consequential, special or punitive
+  damages, including lost profits or loss of goodwill.
+</p>
+
+<h2>15. Refund and cancellation</h2>
+<p>
+  Either Party may terminate this Agreement in writing. Work completed
+  up to the termination date, including modules in flight, is invoiced
+  at actual cost and is due on termination. Unused portions of pre-paid
+  milestones are refunded within thirty (30) days. Once a module is
+  accepted under Section 7, its payment is non-refundable.
+</p>
+
+<h2>16. Dispute resolution</h2>
+<p>
+  The Parties shall first attempt to resolve any dispute in good
+  faith through direct discussion. If a dispute is not resolved within
+  thirty (30) days of written notice, the Parties shall attempt
+  resolution by mediation. Either Party may thereafter pursue any
+  remedy available at law.
+</p>
+
+<h2>17. Governing law</h2>
+<p>
+  This Agreement is governed by, and construed in accordance with,
+  the laws of the Provider&rsquo;s jurisdiction of incorporation,
+  without regard to its conflict-of-laws principles. The Parties
+  submit to the exclusive jurisdiction of the competent courts of
+  that jurisdiction for any matter not resolved under Section 16.
+  <span class="placeholder">[Final jurisdiction text is set by the
+  Provider&rsquo;s legal team and locked in the platform legal entity
+  snapshot bound to this Agreement.]</span>
+</p>
+
+<h2>18. Electronic signature and evidence package</h2>
 <p>
   This Agreement is signed electronically in accordance with applicable
-  electronic signature laws. The Client confirms identity by completing
-  the click-wrap acceptance flow and by entering a one-time code
-  delivered to the registered email address. The captured evidence
-  package (Section 11) serves as proof of signature.
-</p>
-
-<h2>11. Evidence package</h2>
-<p>
-  At the moment of signing, the following items are stored as immutable
-  evidence of the Client's acceptance:
+  electronic-signature laws (signature level: <b>{signature_level}</b>).
+  The Client confirms identity by completing the click-wrap acceptance
+  flow and by entering a one-time code delivered to the registered
+  email address. The Provider counter-signs at the same moment using a
+  deterministic platform signing identity. The following items are
+  captured at the moment of signing and stored as immutable evidence
+  of mutual acceptance:
 </p>
 <ul>
   <li>Full HTML snapshot of this Agreement</li>
-  <li>Snapshot of the project scope, price and payment schedule</li>
-  <li>Snapshot of the Client's legal profile</li>
+  <li>Snapshot of the Client&rsquo;s legal profile</li>
+  <li>Snapshot of the project brief, scope, modules, milestones, price and payment plan</li>
+  <li>Snapshot of the accepted estimate and selected payment method</li>
+  <li>Snapshot of the Provider&rsquo;s legal entity at the moment of signing</li>
   <li>SHA-256 hash of the combined snapshot</li>
   <li>Signing timestamp, IP address, user-agent string</li>
   <li>Confirmation of the one-time code used to verify identity</li>
-  <li>Template version and acceptance copy version</li>
+  <li>Template version, acceptance-copy version, signature level</li>
 </ul>
 
-<h2>12. Governing law</h2>
-<p class="placeholder">
-  [Placeholder — to be set by legal review. Default: laws of the Client's
-  country of registration, with disputes resolved in good faith
-  negotiation prior to any formal action.]
-</p>
-
-<h2>13. Acknowledgements</h2>
+<h2>Acknowledgements</h2>
 <ul>
   <li>I confirm my legal details are correct.</li>
   <li>I agree to the project scope, payment schedule and terms.</li>
@@ -243,6 +349,17 @@ def _render_template(
     timeline: str,
     price: str,
     payment_plan: List[Dict[str, Any]],
+    # CONTRACT-P4 / P5 — extended composition fields. All optional so
+    # existing call sites keep working; missing fields fall back to
+    # human-readable placeholders that legal review can pick up.
+    client_phone: Optional[str] = None,
+    client_email: Optional[str] = None,
+    payment_method: Optional[str] = None,
+    hvl_summary: Optional[str] = None,
+    provider_party: Optional[str] = None,
+    provider_address: Optional[str] = None,
+    provider_tax_id: Optional[str] = None,
+    signature_level: Optional[str] = None,
 ) -> str:
     modules_html = "<ul>" + "".join(
         f"<li><b>{(m.get('title') or m.get('name') or '').strip()}</b>"
@@ -263,31 +380,78 @@ def _render_template(
             "<p class='placeholder'>[Payment plan attached as snapshot]</p>"
         )
 
+    # Tax block — appears only if a tax_id is set (Client may be an
+    # individual with no tax_id by default per the data-minimization rule).
+    client_tax_block = (
+        f", identified by tax ID <b>{client_tax_id}</b>"
+        if client_tax_id and client_tax_id != "[Tax ID]"
+        else ""
+    )
+    provider_tax_block = (
+        f", identified by tax ID <b>{provider_tax_id}</b>"
+        if provider_tax_id and not provider_tax_id.startswith("[")
+        else ""
+    )
+
     return DEFAULT_TEMPLATE_HTML.format(
         template_version=TEMPLATE_VERSION,
         template_status=TEMPLATE_STATUS,
         client_name=client_name or "[Client]",
-        client_tax_id=client_tax_id or "[Tax ID]",
-        client_address=client_address or "[Registered address]",
+        client_tax_block=client_tax_block,
+        client_address=client_address or "[Billing address]",
+        client_phone=client_phone or "[Phone]",
+        client_email=client_email or "[Email]",
         project_title=project_title or "[Project]",
         modules_html=modules_html,
         timeline=timeline or "[Timeline]",
         price=price or "[Price]",
         payment_plan_html=payment_plan_html,
+        payment_method=payment_method or "the payment method selected at signing",
+        hvl_summary=hvl_summary or "automated and human review across acceptance criteria",
+        provider_party=provider_party or "EVA-X / ATLAS DevOS",
+        provider_address=provider_address or "EVA-X Platform — Operational HQ",
+        provider_tax_block=provider_tax_block,
+        signature_level=signature_level or "simple electronic signature (SES)",
     )
 
 
 # ---------------------------------------------------------------------------
-# Pydantic request/response models
+# Pydantic request/response models (CONTRACT-P3 — data-minimization model)
 # ---------------------------------------------------------------------------
+#
+# Design principles (locked):
+#   • Default required set = identity + billing reachability only.
+#     name + email (from session) + phone + billing address + country.
+#   • tax_id is OPTIONAL by default. Required only if the user is a
+#     company OR jurisdiction needs it on the invoice.
+#   • passport / ID photo / personal IDs are NEVER collected by default.
+#     Enhanced KYC happens later, via an external provider, only for
+#     high-value contracts or flagged risk.
+#   • legal_type splits the contract party shape (Section 1 of template).
 
 
 class LegalProfileIn(BaseModel):
-    full_name: str = Field(..., min_length=2, max_length=200)
-    tax_id: str = Field(..., min_length=3, max_length=32)
-    registered_address: str = Field(..., min_length=3, max_length=400)
+    # --- Always required ---
+    legal_type: str = Field(..., pattern=r"^(individual|company)$")
+    first_name: str = Field(..., min_length=1, max_length=80)
+    last_name: str = Field(..., min_length=1, max_length=80)
+    middle_name: Optional[str] = Field(default=None, max_length=80)
+    phone: str = Field(..., min_length=4, max_length=40)
+    billing_address: str = Field(..., min_length=3, max_length=300)
     country: str = Field(..., min_length=2, max_length=64)
-    phone: Optional[str] = Field(default=None, max_length=40)
+    city: str = Field(..., min_length=1, max_length=80)
+    postal_code: str = Field(..., min_length=1, max_length=20)
+
+    # --- Required when legal_type=company (validated in _upsert_legal_profile) ---
+    company_name: Optional[str] = Field(default=None, max_length=200)
+    company_registration_number: Optional[str] = Field(default=None, max_length=64)
+
+    # --- Optional for both ---
+    tax_id: Optional[str] = Field(default=None, max_length=32)
+
+    # --- Convenience for legacy callers (one-line full_name) ---
+    # If provided we use it; otherwise we synthesise from first/last/middle.
+    full_name: Optional[str] = Field(default=None, max_length=200)
 
 
 class PrepareContractIn(BaseModel):
@@ -317,25 +481,187 @@ class SignConfirmIn(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# CONTRACT-P7 — Data protection helpers
+# ---------------------------------------------------------------------------
+#
+# Sensitive fields (tax_id, company_registration_number) are encrypted
+# at rest using AES-128-CBC-style symmetric encryption via cryptography's
+# Fernet (HMAC-SHA256 authenticated). The encryption key is derived from
+# `LEGAL_DATA_ENCRYPTION_KEY` env. If missing, a dev-only deterministic
+# key is generated (logged at boot) so the flow works in preview; for
+# production this MUST be set to a 32-byte url-safe base64 key.
+
+
+_FERNET = None  # lazy cache
+
+
+def _get_fernet():
+    """Return a Fernet instance from env or dev-derived key.
+
+    NEVER use the dev path in production. If the env var is missing in
+    a real deploy, set LEGAL_DATA_ENCRYPTION_KEY to a real key via:
+        python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    """
+    global _FERNET
+    if _FERNET is not None:
+        return _FERNET
+    try:
+        from cryptography.fernet import Fernet
+    except Exception:  # noqa: BLE001 — cryptography is in requirements.txt
+        return None
+    key = os.getenv("LEGAL_DATA_ENCRYPTION_KEY") or ""
+    if not key:
+        # DEV fallback — derive from a stable salt; logs a warning ONCE.
+        import base64 as _b64
+        derived = hashlib.sha256(
+            (os.getenv("MONGO_URL", "dev") + "::legal_profile_v1").encode()
+        ).digest()
+        key = _b64.urlsafe_b64encode(derived).decode()
+        logger.warning(
+            "LEGAL_DATA_ENCRYPTION_KEY not set — using dev-derived key. "
+            "For production set this env to a 32-byte url-safe base64 key."
+        )
+    try:
+        _FERNET = Fernet(key.encode() if isinstance(key, str) else key)
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"Fernet init failed ({e}); sensitive fields stored as plaintext.")
+        _FERNET = None
+    return _FERNET
+
+
+def _enc(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    f = _get_fernet()
+    if not f:
+        return value  # graceful — never block the flow
+    try:
+        return "fernet::" + f.encrypt(value.encode("utf-8")).decode("ascii")
+    except Exception:  # noqa: BLE001
+        return value
+
+
+def _dec(token: Optional[str]) -> Optional[str]:
+    if not token:
+        return None
+    if not token.startswith("fernet::"):
+        return token  # legacy plaintext
+    f = _get_fernet()
+    if not f:
+        return None
+    try:
+        return f.decrypt(token[len("fernet::"):].encode("ascii")).decode("utf-8")
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _profile_public(doc: Dict[str, Any]) -> Dict[str, Any]:
+    """Return a profile dict with sensitive fields decrypted for the
+    OWNER. Admin / audit access should use `_profile_admin_view` which
+    is logged."""
+    if not doc:
+        return doc
+    out = dict(doc)
+    out["tax_id"] = _dec(doc.get("tax_id_enc")) if doc.get("tax_id_enc") else doc.get("tax_id")
+    out["company_registration_number"] = (
+        _dec(doc.get("company_registration_number_enc"))
+        if doc.get("company_registration_number_enc")
+        else doc.get("company_registration_number")
+    )
+    # never leak the encrypted blob to UI
+    out.pop("tax_id_enc", None)
+    out.pop("company_registration_number_enc", None)
+    return out
+
+
+async def _audit_legal_access(
+    *,
+    actor_user_id: str,
+    actor_role: str,
+    subject_user_id: str,
+    reason: str,
+    request_id: Optional[str] = None,
+) -> None:
+    """Append-only admin access log for legal profile reads.
+
+    Anyone reading another user's legal profile (admin, support, audit
+    bot) leaves a row here. Owner reading their own profile is NOT
+    logged (it's their own data — logging it adds noise without value).
+    """
+    if actor_user_id == subject_user_id:
+        return
+    try:
+        await _db.legal_access_audit.insert_one({
+            "audit_id": f"laa_{uuid.uuid4().hex[:12]}",
+            "actor_user_id": actor_user_id,
+            "actor_role": actor_role,
+            "subject_user_id": subject_user_id,
+            "reason": reason,
+            "request_id": request_id,
+            "at": _now_iso(),
+        })
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"legal access audit log failed: {e}")
+
+
+# ---------------------------------------------------------------------------
 # DB helpers
 # ---------------------------------------------------------------------------
 
 
 async def _get_or_null_legal_profile(user_id: str) -> Optional[Dict[str, Any]]:
-    return await _db.client_legal_profiles.find_one({"user_id": user_id}, {"_id": 0})
+    doc = await _db.client_legal_profiles.find_one({"user_id": user_id}, {"_id": 0})
+    return _profile_public(doc) if doc else None
 
 
 async def _upsert_legal_profile(user_id: str, p: LegalProfileIn) -> Dict[str, Any]:
+    """Upsert with data-minimization + encryption for sensitive fields.
+
+    Enforces the company branch: if legal_type=company, company_name +
+    company_registration_number are required.
+    """
+    if p.legal_type == "company":
+        if not (p.company_name and p.company_name.strip()):
+            raise HTTPException(status_code=422, detail="company_name is required when legal_type=company")
+        if not (p.company_registration_number and p.company_registration_number.strip()):
+            raise HTTPException(status_code=422, detail="company_registration_number is required when legal_type=company")
+
     now = _now_iso()
-    existing = await _get_or_null_legal_profile(user_id)
+    existing = await _db.client_legal_profiles.find_one({"user_id": user_id}, {"_id": 0})
+
+    # Synthesise full_name if caller didn't supply one.
+    full_name = (p.full_name or "").strip()
+    if not full_name:
+        parts = [p.first_name.strip(), (p.middle_name or "").strip(), p.last_name.strip()]
+        full_name = " ".join(x for x in parts if x)
+
     doc = {
         "user_id": user_id,
-        "full_name": p.full_name.strip(),
-        "tax_id": p.tax_id.strip(),
-        "registered_address": p.registered_address.strip(),
+        "legal_type": p.legal_type,
+        "full_name": full_name,
+        "first_name": p.first_name.strip(),
+        "last_name": p.last_name.strip(),
+        "middle_name": (p.middle_name or "").strip() or None,
+        "phone": p.phone.strip(),
+        "billing_address": p.billing_address.strip(),
+        # legacy alias for snapshots / template rendering
+        "registered_address": p.billing_address.strip(),
         "country": p.country.strip(),
-        "phone": (p.phone or "").strip() or None,
+        "city": p.city.strip(),
+        "postal_code": p.postal_code.strip(),
+        "company_name": (p.company_name or "").strip() or None,
+        # Sensitive fields — encrypted at rest
+        "tax_id_enc": _enc((p.tax_id or "").strip() or None),
+        "company_registration_number_enc": _enc(
+            (p.company_registration_number or "").strip() or None
+        ),
+        # Cleared plaintext shadows from legacy rows
+        "tax_id": None,
+        "company_registration_number": None,
+        # Verification level — default basic; enhanced/external_kyc set later
+        "verification_level": (existing or {}).get("verification_level", "basic"),
         "updated_at": now,
+        "completed_at": (existing or {}).get("completed_at", now),
         "created_at": existing["created_at"] if existing else now,
     }
     await _db.client_legal_profiles.update_one(
@@ -343,7 +669,7 @@ async def _upsert_legal_profile(user_id: str, p: LegalProfileIn) -> Dict[str, An
         {"$set": doc},
         upsert=True,
     )
-    return doc
+    return _profile_public(doc)
 
 
 def _contract_state_public(c: Dict[str, Any]) -> Dict[str, Any]:
@@ -687,22 +1013,59 @@ def init_router(
         # Persist legal profile (this is the "only at signing" collection point).
         await _upsert_legal_profile(user.user_id, body.legal_profile)
 
-        # Regenerate rendered_html with the updated legal profile so the
-        # client sees the real values on the contract viewer before signing.
+        # CONTRACT-P6 — Readiness gate. After profile upsert, profile is
+        # complete. Re-check the rest (estimate/scope/price/etc.).
+        rd = await _compute_readiness(contract_id, user.user_id)
+        if not rd["ready"]:
+            raise HTTPException(
+                status_code=412,
+                detail={"code": "not_ready_to_sign", "missing": rd["missing"]},
+            )
+
+        # CONTRACT-P8 — Signature level policy: SES default; AES blocked
+        # until external e-sign rail is wired.
+        if rd["signature_level_required"] == "aes":
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "code": "aes_required",
+                    "message": (
+                        "This contract requires an advanced electronic signature "
+                        "(AES) which is not yet enabled on this platform. Please "
+                        "contact support to arrange enhanced verification."
+                    ),
+                },
+            )
+
+        # Regenerate rendered_html with the updated legal profile + extended
+        # composition (CONTRACT-P4 + P5 template).
         profile = await _get_or_null_legal_profile(user.user_id) or {}
         rendered_html = _render_template(
             client_name=profile.get("full_name", "[Client]"),
-            client_tax_id=profile.get("tax_id", "[Tax ID]"),
-            client_address=profile.get("registered_address", "[Registered address]"),
+            client_tax_id=profile.get("tax_id", "[Tax ID]") or "[Tax ID]",
+            client_address=profile.get("billing_address")
+                or profile.get("registered_address", "[Billing address]"),
             project_title=c.get("project_title", "[Project]"),
             modules=c.get("modules", []),
             timeline=c.get("timeline", "[Timeline]"),
             price=c.get("price", "[Price]"),
             payment_plan=c.get("payment_plan", []),
+            client_phone=profile.get("phone"),
+            client_email=user.email,
+            payment_method=c.get("payment_method"),
+            hvl_summary=c.get("hvl_summary"),
+            provider_party=os.getenv("EXECUTOR_PARTY", "EVA-X / ATLAS DevOS"),
+            provider_address=os.getenv("EXECUTOR_ADDRESS"),
+            provider_tax_id=os.getenv("EXECUTOR_TAX_ID"),
+            signature_level=rd["signature_level_required"],
         )
         await _db.contracts.update_one(
             {"contract_id": contract_id},
-            {"$set": {"rendered_html": rendered_html, "state": "awaiting_signature"}},
+            {"$set": {
+                "rendered_html": rendered_html,
+                "state": "awaiting_signature",
+                "signature_level_required": rd["signature_level_required"],
+            }},
         )
 
         email = user.email or ""
@@ -751,16 +1114,26 @@ def init_router(
         # OTP.
         await _consume_contract_otp(contract_id, user.user_id, body.otp_code)
 
-        # Build final snapshot.
+        # Build final snapshot using extended P4+P5 composition.
+        sig_level = _required_signature_level(c)
         final_html = _render_template(
             client_name=legal_profile["full_name"],
-            client_tax_id=legal_profile["tax_id"],
-            client_address=legal_profile["registered_address"],
+            client_tax_id=legal_profile.get("tax_id") or "[Tax ID]",
+            client_address=legal_profile.get("billing_address")
+                or legal_profile.get("registered_address", "[Billing address]"),
             project_title=c.get("project_title", "[Project]"),
             modules=c.get("modules", []),
             timeline=c.get("timeline", "[Timeline]"),
             price=c.get("price", "[Price]"),
             payment_plan=c.get("payment_plan", []),
+            client_phone=legal_profile.get("phone"),
+            client_email=user.email,
+            payment_method=c.get("payment_method"),
+            hvl_summary=c.get("hvl_summary"),
+            provider_party=os.getenv("EXECUTOR_PARTY", "EVA-X / ATLAS DevOS"),
+            provider_address=os.getenv("EXECUTOR_ADDRESS"),
+            provider_tax_id=os.getenv("EXECUTOR_TAX_ID"),
+            signature_level=sig_level,
         )
 
         project_snapshot = {
@@ -771,6 +1144,19 @@ def init_router(
             "timeline": c.get("timeline"),
             "modules": c.get("modules", []),
             "payment_plan": c.get("payment_plan", []),
+            # CONTRACT-P4 — extended composition fields. Best-effort —
+            # missing values land in evidence as null and surface as
+            # placeholders in template body.
+            "payment_method": c.get("payment_method"),
+            "hvl_summary": c.get("hvl_summary"),
+            "platform_legal_entity": {
+                "party": os.getenv("EXECUTOR_PARTY", "EVA-X / ATLAS DevOS"),
+                "address": os.getenv("EXECUTOR_ADDRESS"),
+                "tax_id": os.getenv("EXECUTOR_TAX_ID"),
+                "country": os.getenv("EXECUTOR_COUNTRY"),
+                "signatory": os.getenv("EXECUTOR_SIGNATORY"),
+            },
+            "signature_level": sig_level,
         }
         legal_profile_snapshot = {
             k: v for k, v in legal_profile.items() if not k.startswith("_")
@@ -857,6 +1243,7 @@ def init_router(
                     },
                     "executor_signature": executor_signature,
                     "fully_executed": True,
+                    "signature_level": sig_level,
                 }
             },
         )
@@ -1167,7 +1554,170 @@ def init_router(
         result = await _run_reminder_sweep()
         return result
 
+    # ------- CONTRACT-P6 Signature Readiness Gate -------
+
+    @router.get("/contracts/{contract_id}/readiness")
+    async def signature_readiness(contract_id: str, user=Depends(_get_current_user)):
+        """Return a hard checklist that MUST be all-true before the
+        client can sign. Frontend uses this to drive the sign CTA and
+        show the user what's missing; backend re-checks the same on
+        request-otp / confirm and returns 412 if anything is false.
+        """
+        result = await _compute_readiness(contract_id, user.user_id)
+        return result
+
+    # ------- CONTRACT-P7 Data export (GDPR-style "give me my data") -------
+
+    @router.get("/legal/profile/export")
+    async def export_legal_profile(user=Depends(_get_current_user)):
+        """Return everything we hold about this user's legal identity:
+        profile snapshot, every contract signed, the signature evidence
+        rows. Sensitive fields decrypted only for the owner."""
+        prof = await _get_or_null_legal_profile(user.user_id) or {}
+        contracts = [
+            _contract_state_public(c)
+            async for c in _db.contracts.find(
+                {"user_id": user.user_id}, {"_id": 0}
+            ).sort("created_at", -1)
+        ]
+        sigs = [
+            sig
+            async for sig in _db.contract_signatures.find(
+                {"user_id": user.user_id}, {"_id": 0}
+            ).sort("signed_at", -1)
+        ]
+        return {
+            "user_id": user.user_id,
+            "email": user.email,
+            "exported_at": _now_iso(),
+            "legal_profile": prof,
+            "contracts": contracts,
+            "signatures": sigs,
+            "note": (
+                "This is the full dataset that the platform holds about your "
+                "legal identity and your signed agreements. "
+                "Sensitive fields (tax_id, company_registration_number) are "
+                "decrypted for you, the owner. Signed contracts and their "
+                "evidence rows are retained as required by law and cannot be "
+                "redacted without a separate deletion request."
+            ),
+        }
+
+    # ------- CONTRACT-P7 Deletion request (signed contracts are retained) -------
+
+    @router.post("/legal/profile/delete-request")
+    async def request_profile_delete(user=Depends(_get_current_user)):
+        """Open an erasure request. The legal profile fields are cleared
+        immediately for unsigned context; signed contracts and their
+        evidence rows are retained per Section 18 retention rule.
+
+        Marks the profile as `deletion_requested` and writes an audit row;
+        actual processing follows the retention policy (admin reviews via
+        /api/admin/legal/deletion-requests once that surface is live).
+        """
+        await _db.client_legal_profiles.update_one(
+            {"user_id": user.user_id},
+            {"$set": {
+                "deletion_requested_at": _now_iso(),
+                "deletion_state": "open",
+                # Clear non-signed sensitive plaintext fields immediately.
+                "tax_id_enc": None,
+                "company_registration_number_enc": None,
+            }},
+        )
+        await _db.legal_access_audit.insert_one({
+            "audit_id": f"laa_{uuid.uuid4().hex[:12]}",
+            "actor_user_id": user.user_id,
+            "actor_role": getattr(user, "role", "client"),
+            "subject_user_id": user.user_id,
+            "reason": "self_delete_request",
+            "at": _now_iso(),
+        })
+        return {"ok": True, "state": "open",
+                "note": "Erasure request opened. Signed contract evidence "
+                        "rows are retained as required by law."}
+
     return router
+
+
+# ---------------------------------------------------------------------------
+# CONTRACT-P6 Readiness gate — single source of truth
+# ---------------------------------------------------------------------------
+
+
+async def _compute_readiness(contract_id: str, user_id: str) -> Dict[str, Any]:
+    """Return a deterministic checklist + a boolean `ready` flag.
+
+    Backend-truth. Both UI and the sign endpoints consume this.
+    """
+    contract = await _db.contracts.find_one(
+        {"contract_id": contract_id, "user_id": user_id}, {"_id": 0}
+    )
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contract not found")
+
+    profile = await _get_or_null_legal_profile(user_id) or {}
+
+    checks = {
+        "legal_profile_completed": bool(
+            profile.get("legal_type")
+            and profile.get("first_name")
+            and profile.get("last_name")
+            and profile.get("billing_address")
+        ),
+        "phone_present": bool(profile.get("phone")),
+        "billing_address_present": bool(profile.get("billing_address")),
+        "country_present": bool(profile.get("country")),
+        "company_block_complete_if_company": (
+            profile.get("legal_type") != "company"
+            or (bool(profile.get("company_name"))
+                and bool(profile.get("company_registration_number")))
+        ),
+        "estimate_present": bool(
+            contract.get("estimate_id")
+            or contract.get("price")
+            or contract.get("project_id")
+        ),
+        "scope_present": bool(contract.get("modules") or contract.get("project_id")),
+        "price_present": bool(contract.get("price")),
+        "contract_generated": bool(contract.get("rendered_html")),
+        "template_version_locked": bool(contract.get("template_version")),
+        "not_already_signed": contract["state"] != "signed",
+    }
+
+    missing = [k for k, v in checks.items() if not v]
+    return {
+        "contract_id": contract_id,
+        "ready": len(missing) == 0,
+        "checks": checks,
+        "missing": missing,
+        "verification_level": profile.get("verification_level", "basic"),
+        "signature_level_required": _required_signature_level(contract),
+    }
+
+
+def _required_signature_level(contract: Dict[str, Any]) -> str:
+    """CONTRACT-P8 — Signature Level Policy.
+
+    Default = SES (simple electronic signature). For high-value
+    contracts above `CONTRACT_AES_THRESHOLD_USD`, the policy switches
+    to AES (advanced electronic signature) which is not yet wired and
+    will surface 503 until the external e-sign provider is connected.
+    """
+    try:
+        threshold = float(os.getenv("CONTRACT_AES_THRESHOLD_USD", "0") or 0)
+    except Exception:
+        threshold = 0.0
+    if threshold <= 0:
+        return "ses"
+    try:
+        # Strip non-numeric characters from price (e.g. "$1,500" → 1500).
+        raw = str(contract.get("price") or "0")
+        digits = "".join(ch for ch in raw if ch.isdigit() or ch == ".")
+        amount = float(digits or 0)
+    except Exception:
+        amount = 0.0
+    return "aes" if amount >= threshold else "ses"
 
 
 # ---------------------------------------------------------------------------

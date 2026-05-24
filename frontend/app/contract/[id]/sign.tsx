@@ -35,19 +35,33 @@ import T from '../../../src/theme';
  */
 
 type LegalProfile = {
-  full_name: string;
-  tax_id: string;
-  registered_address: string;
+  legal_type: 'individual' | 'company';
+  first_name: string;
+  last_name: string;
+  middle_name?: string;
+  phone: string;
+  billing_address: string;
   country: string;
-  phone?: string;
+  city: string;
+  postal_code: string;
+  company_name?: string;
+  company_registration_number?: string;
+  tax_id?: string;
 };
 
 const EMPTY: LegalProfile = {
-  full_name: '',
-  tax_id: '',
-  registered_address: '',
-  country: '',
+  legal_type: 'individual',
+  first_name: '',
+  last_name: '',
+  middle_name: '',
   phone: '',
+  billing_address: '',
+  country: '',
+  city: '',
+  postal_code: '',
+  company_name: '',
+  company_registration_number: '',
+  tax_id: '',
 };
 
 type Acks = {
@@ -95,11 +109,18 @@ export default function ContractSignScreen() {
       const existing = p.data?.profile;
       if (existing) {
         setProfile({
-          full_name: existing.full_name || '',
-          tax_id: existing.tax_id || '',
-          registered_address: existing.registered_address || '',
-          country: existing.country || '',
+          legal_type: (existing.legal_type === 'company' ? 'company' : 'individual'),
+          first_name: existing.first_name || '',
+          last_name: existing.last_name || '',
+          middle_name: existing.middle_name || '',
           phone: existing.phone || '',
+          billing_address: existing.billing_address || existing.registered_address || '',
+          country: existing.country || '',
+          city: existing.city || '',
+          postal_code: existing.postal_code || '',
+          company_name: existing.company_name || '',
+          company_registration_number: existing.company_registration_number || '',
+          tax_id: existing.tax_id || '',
         });
       }
       if (c.data.is_signed) setStep(5);
@@ -115,13 +136,35 @@ export default function ContractSignScreen() {
   }, [contractId, loadContract]);
 
   const profileValid = useMemo(() => {
-    return (
-      profile.full_name.trim().length >= 2 &&
-      profile.tax_id.trim().length >= 3 &&
-      profile.registered_address.trim().length >= 3 &&
-      profile.country.trim().length >= 2
-    );
+    const base =
+      profile.first_name.trim().length >= 1 &&
+      profile.last_name.trim().length >= 1 &&
+      profile.phone.trim().length >= 4 &&
+      profile.billing_address.trim().length >= 3 &&
+      profile.country.trim().length >= 2 &&
+      profile.city.trim().length >= 1 &&
+      profile.postal_code.trim().length >= 1;
+    if (!base) return false;
+    if (profile.legal_type === 'company') {
+      return !!(profile.company_name?.trim()) && !!(profile.company_registration_number?.trim());
+    }
+    return true;
   }, [profile]);
+
+  const buildLegalPayload = () => ({
+    legal_type: profile.legal_type,
+    first_name: profile.first_name.trim(),
+    last_name: profile.last_name.trim(),
+    middle_name: (profile.middle_name || '').trim() || undefined,
+    phone: profile.phone.trim(),
+    billing_address: profile.billing_address.trim(),
+    country: profile.country.trim(),
+    city: profile.city.trim(),
+    postal_code: profile.postal_code.trim(),
+    company_name: profile.legal_type === 'company' ? (profile.company_name || '').trim() : undefined,
+    company_registration_number: profile.legal_type === 'company' ? (profile.company_registration_number || '').trim() : undefined,
+    tax_id: (profile.tax_id || '').trim() || undefined,
+  });
 
   const allAcked = acks.legal_details_correct && acks.scope_terms_agreed && acks.start_after_payment_understood;
 
@@ -145,13 +188,7 @@ export default function ContractSignScreen() {
     setErr(null);
     try {
       const r = await api.post(`/contracts/${contractId}/sign/request-otp`, {
-        legal_profile: {
-          full_name: profile.full_name.trim(),
-          tax_id: profile.tax_id.trim(),
-          registered_address: profile.registered_address.trim(),
-          country: profile.country.trim(),
-          phone: (profile.phone || '').trim() || undefined,
-        },
+        legal_profile: buildLegalPayload(),
       });
       setOtpMeta(r.data.otp || {});
       setStep(4);
@@ -172,16 +209,10 @@ export default function ContractSignScreen() {
     setErr(null);
     try {
       const r = await api.post(`/contracts/${contractId}/sign/confirm`, {
-        legal_profile: {
-          full_name: profile.full_name.trim(),
-          tax_id: profile.tax_id.trim(),
-          registered_address: profile.registered_address.trim(),
-          country: profile.country.trim(),
-          phone: (profile.phone || '').trim() || undefined,
-        },
+        legal_profile: buildLegalPayload(),
         acknowledgements: acks,
         otp_code: otpCode.trim(),
-        terms_version: 'v1.0',
+        terms_version: 'v1.0-placeholder',
       });
       setContract(r.data.contract);
       setStep(5);
@@ -197,7 +228,7 @@ export default function ContractSignScreen() {
     setSubmitting(true);
     try {
       const r = await api.post(`/contracts/${contractId}/sign/request-otp`, {
-        legal_profile: profile,
+        legal_profile: buildLegalPayload(),
       });
       setOtpMeta(r.data.otp || {});
       Alert.alert('Sent', 'A fresh code was sent to your email.');
@@ -336,42 +367,118 @@ function Step1Legal({
       <Text style={s.h1}>Legal details</Text>
       <Text style={s.lede}>
         We only ask for this now — at the moment of signing your first agreement.
+        Tax ID and passport details are not required by default.
       </Text>
 
+      {/* Legal type toggle (individual / company) */}
+      <View style={s.segmented}>
+        <TouchableOpacity
+          style={[s.segBtn, profile.legal_type === 'individual' && s.segBtnActive]}
+          onPress={() => setProfile({ ...profile, legal_type: 'individual' })}
+          testID="contract-legal-type-individual"
+        >
+          <Ionicons name="person-outline" size={14} color={profile.legal_type === 'individual' ? T.primaryInk : T.subtle} />
+          <Text style={[s.segBtnText, profile.legal_type === 'individual' && s.segBtnTextActive]}>Individual</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[s.segBtn, profile.legal_type === 'company' && s.segBtnActive]}
+          onPress={() => setProfile({ ...profile, legal_type: 'company' })}
+          testID="contract-legal-type-company"
+        >
+          <Ionicons name="business-outline" size={14} color={profile.legal_type === 'company' ? T.primaryInk : T.subtle} />
+          <Text style={[s.segBtnText, profile.legal_type === 'company' && s.segBtnTextActive]}>Company</Text>
+        </TouchableOpacity>
+      </View>
+
       <Field
-        label="Full name"
-        value={profile.full_name}
-        onChangeText={(v) => setProfile({ ...profile, full_name: v })}
+        label="First name"
+        value={profile.first_name}
+        onChangeText={(v) => setProfile({ ...profile, first_name: v })}
         autoCapitalize="words"
-        testID="contract-legal-full_name"
+        testID="contract-legal-first_name"
       />
       <Field
-        label="Tax ID / РНОКПП / ЄДРПОУ"
-        value={profile.tax_id}
-        onChangeText={(v) => setProfile({ ...profile, tax_id: v })}
-        keyboardType="default"
-        testID="contract-legal-tax_id"
+        label="Last name"
+        value={profile.last_name}
+        onChangeText={(v) => setProfile({ ...profile, last_name: v })}
+        autoCapitalize="words"
+        testID="contract-legal-last_name"
       />
       <Field
-        label="Registered address"
-        value={profile.registered_address}
-        onChangeText={(v) => setProfile({ ...profile, registered_address: v })}
+        label="Middle name (optional)"
+        value={profile.middle_name || ''}
+        onChangeText={(v) => setProfile({ ...profile, middle_name: v })}
+        autoCapitalize="words"
+        testID="contract-legal-middle_name"
+      />
+      <Field
+        label="Phone"
+        value={profile.phone}
+        onChangeText={(v) => setProfile({ ...profile, phone: v })}
+        keyboardType="phone-pad"
+        testID="contract-legal-phone"
+      />
+      <Field
+        label="Billing address"
+        value={profile.billing_address}
+        onChangeText={(v) => setProfile({ ...profile, billing_address: v })}
         multiline
         testID="contract-legal-address"
       />
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <View style={{ flex: 2 }}>
+          <Field
+            label="City"
+            value={profile.city}
+            onChangeText={(v) => setProfile({ ...profile, city: v })}
+            testID="contract-legal-city"
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Field
+            label="Postal code"
+            value={profile.postal_code}
+            onChangeText={(v) => setProfile({ ...profile, postal_code: v })}
+            testID="contract-legal-postal"
+          />
+        </View>
+      </View>
       <Field
         label="Country"
         value={profile.country}
         onChangeText={(v) => setProfile({ ...profile, country: v })}
         testID="contract-legal-country"
       />
+
+      {/* Company-only fields */}
+      {profile.legal_type === 'company' ? (
+        <>
+          <Field
+            label="Company name"
+            value={profile.company_name || ''}
+            onChangeText={(v) => setProfile({ ...profile, company_name: v })}
+            testID="contract-legal-company_name"
+          />
+          <Field
+            label="Company registration number"
+            value={profile.company_registration_number || ''}
+            onChangeText={(v) => setProfile({ ...profile, company_registration_number: v })}
+            testID="contract-legal-company_reg"
+          />
+        </>
+      ) : null}
+
       <Field
-        label="Phone (optional)"
-        value={profile.phone || ''}
-        onChangeText={(v) => setProfile({ ...profile, phone: v })}
-        keyboardType="phone-pad"
-        testID="contract-legal-phone"
+        label="Tax ID / VAT (optional)"
+        value={profile.tax_id || ''}
+        onChangeText={(v) => setProfile({ ...profile, tax_id: v })}
+        testID="contract-legal-tax_id"
       />
+
+      <Text style={[s.lede, { fontSize: 11, marginTop: 4 }]}>
+        Your tax/registration numbers are stored encrypted at rest and are
+        visible only to you. Admin access is logged.
+      </Text>
 
       <TouchableOpacity
         style={[s.btnPrimary, !valid && s.btnDisabled]}
