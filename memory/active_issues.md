@@ -6,14 +6,15 @@
 
 ## Open work
 
-### 🟡 PAYOUTS_V2 — P0 ✅ + P1 ✅ + P3 ✅ + P5 ✅ done; P2 → P4 pending
+### 🟡 PAYOUTS_V2 — P0 ✅ + P1 ✅ + P3 ✅ + P5 ✅ + P2A ✅ done; P2B → P4 pending
 
 - **Charter:** `/app/docs/active-audits/PAY_V2_P0_CHARTER.md` (signed off 2026-FEB-24)
 - **Discovery:** `/app/docs/active-audits/PAYOUTS_V2_DISCOVERY.md`
 - **P3 closeout:** `/app/docs/active-audits/PAY_V2_P3_DEPLOYED.md` (2026-05-24)
 - **P5 closeout:** `/app/docs/active-audits/PAY_V2_P5_DEPLOYED.md` (2026-05-24)
-- **Sequence (locked by user):** P3 ✅ → P5 ✅ → P2 → P4. Foundation correctness + execution + operational visibility before live money.
-- **Status:** Foundation + autonomous execution engine + operational UI deployed. Master guard: `python3 /app/backend/scripts/audit/pay_v2_master.py` → ✅ pass.
+- **Sequence (locked by user):** P3 ✅ → P5 ✅ → **P2A ✅** (Stripe active + PayPal dormant scaffold) → P2B (PayPal live) → P4 (reconciliation). Foundation correctness + execution + operational visibility before live money.
+- **P2A closeout:** `/app/docs/active-audits/PAY_V2_P2A_DEPLOYED.md` (2026-FEB)
+- **Status:** Foundation + autonomous execution engine + operational UI + **Stripe Connect active rail** deployed. Master guard: `python3 /app/backend/scripts/audit/pay_v2_master.py` → ✅ pass.
 - **Decisions locked:** 1A (Stripe Connect + PayPal Payouts), 2C (Hybrid cadence), 3C (`/api/payouts-v2/*` unified namespace), 4C (Soft KYC), 5A (USD-only).
 - **What's live (P0+P1+P3+P5):**
   - SettlementProvider ABC + MockSettlementProvider (capability=SETTLEMENT registered + manifest fallback added)

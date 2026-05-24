@@ -123,14 +123,17 @@ class StripeConnectSettlementProvider(SettlementProvider):
                 reason="STRIPE_API_KEY missing",
                 details={"mode": self._mode, "webhook_secret": False},
             )
+        # AvailabilityMode has only LIVE / MOCK / DEGRADED / UNAVAILABLE.
+        # Test-mode Stripe is technically LIVE traffic to Stripe's sandbox —
+        # surface mode="live" but use details to distinguish test vs prod.
         return CapabilityState(
             capability=Capability.SETTLEMENT,
             provider_name=self.name,
-            mode=AvailabilityMode.LIVE if self._mode == "live" else AvailabilityMode.SANDBOX,
+            mode=AvailabilityMode.LIVE,
             available=True,
             reason=None,
             details={
-                "mode": self._mode,
+                "mode": self._mode,  # "test" | "live"
                 "webhook_secret": bool(self._webhook_secret),
             },
         )
